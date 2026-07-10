@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pick Scan Tool</title>
+<style>
+  :root {
+    --green: #3A7D2C;
+    --green-bg: #EAF3DE;
+    --green-badge: #C0DD97;
+    --red: #A32D2D;
+    --red-bg: #FCEBEB;
+    --red-badge: #F7C1C1;
+    --blue: #1A5FA8;
+    --blue-light: #E6F1FB;
+    --blue-btn: #2368C4;
+    --gray-bg: #F5F6F8;
+    --gray-card: #FFFFFF;
+    --gray-border: #E0E3E8;
+    --gray-text: #6B7280;
+    --text: #111827;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-bg); color: var(--text); min-height: 100vh; }
+
+  /* UPLOAD SCREEN */
+  #upload-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .logo { font-size: 2.5rem; margin-bottom: 1rem; }
+  .upload-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .upload-sub { font-size: 14px; color: var(--gray-text); margin-bottom: 2rem; text-align: center; max-width: 380px; }
+  .drop-zone { width: 100%; max-width: 480px; border: 2px dashed var(--gray-border); border-radius: var(--radius); padding: 2.5rem 2rem; text-align: center; background: white; cursor: pointer; transition: border-color .2s, background .2s; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--blue-btn); background: var(--blue-light); }
+  .drop-zone input[type=file] { display: none; }
+  .drop-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+  .drop-label { font-size: 15px; font-weight: 500; margin-bottom: 0.4rem; }
+  .drop-hint { font-size: 13px; color: var(--gray-text); }
+  .files-list { width: 100%; max-width: 480px; margin-top: 1.25rem; display: none; }
+  .file-item { display: flex; align-items: center; gap: 10px; background: white; border: 1px solid var(--gray-border); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 14px; }
+  .file-item .fname { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item .fcount { font-size: 12px; color: var(--gray-text); }
+  .file-remove { background: none; border: none; cursor: pointer; color: var(--gray-text); font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+  .file-remove:hover { background: var(--red-bg); color: var(--red); }
+  .btn-start { margin-top: 1.5rem; padding: 13px 36px; background: var(--blue-btn); color: white; border: none; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; display: none; }
+  .btn-start:hover { background: #1A5FA8; }
+  .error-msg { color: var(--red); font-size: 13px; margin-top: 0.75rem; display: none; }
+
+  /* SCAN APP */
+  #scan-app { display: none; min-height: 100vh; }
+  .topbar { background: white; border-bottom: 1px solid var(--gray-border); padding: 0 1.5rem; height: 56px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; box-shadow: var(--shadow); }
+  .topbar h1 { font-size: 16px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-new { padding: 6px 14px; border-radius: 7px; border: 1px solid var(--gray-border); background: white; font-size: 13px; cursor: pointer; color: var(--gray-text); }
+  .btn-new:hover { background: var(--gray-bg); }
+
+  .main { max-width: 900px; margin: 0 auto; padding: 1.25rem 1rem; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .stat { background: white; border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 11px; color: var(--gray-text); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .stat-val { font-size: 24px; font-weight: 700; }
+  .stat-val.ok { color: var(--green); }
+  .stat-val.err { color: var(--red); }
+
+  .progress-bar { height: 6px; background: var(--gray-border); border-radius: 3px; margin-bottom: 1.25rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width .3s; width: 0%; }
+
+  .scan-card { background: white; border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); margin-bottom: 1.25rem; }
+  .scan-row { display: flex; gap: 10px; align-items: center; }
+  .scan-input { flex: 1; font-size: 15px; padding: 11px 14px; border-radius: 8px; border: 1.5px solid var(--gray-border); outline: none; background: var(--gray-bg); }
+  .scan-input:focus { border-color: var(--blue-btn); background: white; box-shadow: 0 0 0 3px rgba(35,104,196,0.12); }
+  .scan-input.error { border-color: var(--red); }
+  .not-found { font-size: 13px; color: var(--red); margin-top: 8px; display: none; padding: 7px 10px; background: var(--red-bg); border-radius: 6px; }
+
+  .modal-card { background: #EEF5FF; border: 1.5px solid #BBCFED; border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: none; }
+  .modal-card.show { display: block; }
+  .modal-art { font-size: 13px; color: var(--blue); font-weight: 600; margin-bottom: 2px; }
+  .modal-name { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  .modal-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .qty-input { width: 90px; font-size: 22px; font-weight: 700; text-align: center; padding: 8px; border-radius: 8px; border: 1.5px solid var(--gray-border); background: white; outline: none; }
+  .qty-input:focus { border-color: var(--blue-btn); box-shadow: 0 0 0 3px rgba(35,104,196,0.12); }
+  .qty-expected { font-size: 13px; color: var(--gray-text); }
+  .btn-confirm { padding: 10px 22px; background: var(--blue-btn); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-confirm:hover { background: var(--blue); }
+
+  .controls { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .filter-btn { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--gray-border); background: white; color: var(--gray-text); font-size: 12px; cursor: pointer; font-weight: 500; }
+  .filter-btn.active { background: var(--blue-btn); color: white; border-color: var(--blue-btn); }
+  .search-input { margin-left: auto; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--gray-border); font-size: 12px; outline: none; width: 160px; }
+  .search-input:focus { border-color: var(--blue-btn); }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); font-size: 13px; }
+  thead { background: var(--gray-bg); }
+  th { padding: 9px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--gray-text); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--gray-border); }
+  td { padding: 9px 12px; border-bottom: 1px solid #F0F2F5; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr.row-ok td { background: var(--green-bg); }
+  tr.row-err td { background: var(--red-bg); }
+  tr.row-active td { background: var(--blue-light); }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-open { background: #F0F2F5; color: var(--gray-text); }
+  .badge-ok { background: var(--green-badge); color: #1C4D09; }
+  .badge-err { background: var(--red-badge); color: #7A1A1A; }
+  .src-tag { font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600; margin-left: 4px; }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--gray-text); font-size: 14px; }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: repeat(3,1fr); gap: 6px; }
+    .stat-val { font-size: 18px; }
+    th:nth-child(1), td:nth-child(1) { display: none; }
+    .search-input { width: 120px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- UPLOAD SCREEN -->
+<div id="upload-screen">
+  <div class="logo">📦</div>
+  <div class="upload-title">Pick Scan Tool</div>
+  <div class="upload-sub">Sleep één of meerdere pickopdracht CSV-bestanden hierin. Bestanden worden samengevoegd.</div>
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".csv" multiple>
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">Klik om bestanden te kiezen</div>
+    <div class="drop-hint">of sleep CSV-bestanden hierheen · meerdere bestanden tegelijk mogelijk</div>
+  </div>
+  <div class="files-list" id="files-list"></div>
+  <div class="error-msg" id="error-msg"></div>
+  <button class="btn-start" id="btn-start">Starten met scannen →</button>
+</div>
+
+<!-- SCAN APP -->
+<div id="scan-app">
+  <div class="topbar">
+    <span>🔍</span>
+    <h1 id="app-title">Pickopdracht</h1>
+    <button class="btn-new" onclick="resetToUpload()">Nieuw bestand</button>
+  </div>
+  <div class="main">
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Totaal</div><div class="stat-val" id="st-total">0</div></div>
+      <div class="stat"><div class="stat-label">Correct</div><div class="stat-val ok" id="st-ok">0</div></div>
+      <div class="stat"><div class="stat-label">Fout / open</div><div class="stat-val err" id="st-err">0</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+    <div class="scan-card">
+      <div class="scan-row">
+        <input type="text" class="scan-input" id="scan-input" placeholder="Scan barcode hier..." autocomplete="off" />
+      </div>
+      <div class="not-found" id="not-found">⚠ Scancode niet gevonden in deze opdracht</div>
+    </div>
+
+    <div class="modal-card" id="modal-card">
+      <div class="modal-art" id="modal-art"></div>
+      <div class="modal-name" id="modal-name"></div>
+      <div class="modal-row">
+        <input type="number" class="qty-input" id="qty-input" min="0" placeholder="0" />
+        <span class="qty-expected" id="qty-expected"></span>
+        <button class="btn-confirm" onclick="confirmQty()">✓ Bevestigen</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Alles</button>
+      <button class="filter-btn" onclick="setFilter('open',this)">Open</button>
+      <button class="filter-btn" onclick="setFilter('ok',this)">Correct</button>
+      <button class="filter-btn" onclick="setFilter('err',this)">Fout</button>
+      <div id="src-filters"></div>
+      <input type="text" class="search-input" id="search-input" placeholder="Zoeken..." />
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Scancode</th>
+          <th>Artikel</th>
+          <th>Omschrijving</th>
+          <th style="text-align:center">Gevraagd</th>
+          <th style="text-align:center">Gepickt</th>
+          <th style="text-align:center">Status</th>
+        </tr>
+      </thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let items = [];
+let byCode = {};
+let activeIdx = null;
+let currentFilter = 'all';
+let searchTerm = '';
+let loadedFiles = []; // {name, rows}
+
+// ── CSV Parser ─────────────────────────────────────────────────────────────
+function parseCSV(text, filename) {
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  const sep = text.includes(';') ? ';' : ',';
+  for (const line of lines) {
+    const cols = line.split(sep).map(c => c.replace(/^"|"$/g,'').trim());
+    // S column = B (te picken), skip Z (niet beschikbaar)
+    if (cols[0] !== 'B') continue;
+    const scancode = cols[1];
+    const artikel = cols[2];
+    const omschrijving = cols[3];
+    const gevraagd = parseInt(cols[10]);
+    if (!scancode || !artikel || isNaN(gevraagd) || gevraagd <= 0) continue;
+    rows.push({ scancode, artikel, omschrijving, gevraagd, bron: filename });
+  }
+  return rows;
+}
+
+// ── File handling ──────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const filesList = document.getElementById('files-list');
+const btnStart = document.getElementById('btn-start');
+const errorMsg = document.getElementById('error-msg');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(files) {
+  errorMsg.style.display = 'none';
+  Array.from(files).forEach(file => {
+    if (!file.name.endsWith('.csv')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const rows = parseCSV(e.target.result, file.name);
+      if (rows.length === 0) {
+        errorMsg.textContent = `${file.name}: geen geldige pickopdracht regels gevonden.`;
+        errorMsg.style.display = 'block';
+        return;
+      }
+      // Avoid duplicates
+      if (!loadedFiles.find(f => f.name === file.name)) {
+        loadedFiles.push({ name: file.name, rows });
+      }
+      renderFilesList();
+    };
+    reader.readAsText(file, 'UTF-8');
+  });
+}
+
+function renderFilesList() {
+  if (loadedFiles.length === 0) { filesList.style.display = 'none'; btnStart.style.display = 'none'; return; }
+  filesList.style.display = 'block';
+  btnStart.style.display = 'block';
+  filesList.innerHTML = loadedFiles.map((f,i) => `
+    <div class="file-item">
+      <span>📄</span>
+      <span class="fname">${f.name}</span>
+      <span class="fcount">${f.rows.length} artikelen</span>
+      <button class="file-remove" onclick="removeFile(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeFile(i) {
+  loadedFiles.splice(i, 1);
+  renderFilesList();
+}
+
+document.getElementById('btn-start').addEventListener('click', startApp);
+
+function startApp() {
+  if (loadedFiles.length === 0) return;
+  // Merge all files
+  const allRows = [];
+  const seenCodes = new Set();
+  loadedFiles.forEach(f => {
+    f.rows.forEach(r => {
+      if (!seenCodes.has(r.scancode)) {
+        seenCodes.add(r.scancode);
+        allRows.push({ ...r, gepickt: null, status: 'open' });
+      }
+    });
+  });
+  items = allRows;
+  byCode = {};
+  items.forEach((it, i) => { byCode[it.scancode] = i; });
+
+  // Title
+  const names = loadedFiles.map(f => f.name.replace(/\.csv$/i,'').replace(/export-picovz01-danny2-\d+_/,''));
+  document.getElementById('app-title').textContent = names.join(' + ');
+
+  // Source filters
+  const sources = [...new Set(items.map(it => it.bron))];
+  const sfEl = document.getElementById('src-filters');
+  if (sources.length > 1) {
+    sfEl.innerHTML = sources.map((s,i) => {
+      const short = s.replace(/\.csv$/i,'').split(/[_\-]/).slice(-2).join(' ');
+      return `<button class="filter-btn" onclick="setFilter('src${i}',this)" data-src="${s}">${short}</button>`;
+    }).join('');
+  } else {
+    sfEl.innerHTML = '';
+  }
+
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('scan-app').style.display = 'block';
+  updateStats();
+  renderTable();
+  setTimeout(() => document.getElementById('scan-input').focus(), 100);
+}
+
+// ── Scan logic ─────────────────────────────────────────────────────────────
+document.getElementById('scan-input').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const val = document.getElementById('scan-input').value.trim();
+  if (!val) return;
+  const nf = document.getElementById('not-found');
+  const inp = document.getElementById('scan-input');
+  const idx = byCode[val];
+  if (idx === undefined) {
+    inp.classList.add('error');
+    nf.style.display = 'block';
+    setTimeout(() => { inp.classList.remove('error'); nf.style.display = 'none'; }, 2000);
+    return;
+  }
+  inp.classList.remove('error');
+  nf.style.display = 'none';
+  showModal(idx);
+});
+
+function showModal(idx) {
+  activeIdx = idx;
+  const it = items[idx];
+  document.getElementById('modal-art').textContent = 'Artikel ' + it.artikel + ' · ' + it.scancode;
+  document.getElementById('modal-name').textContent = it.omschrijving;
+  document.getElementById('qty-expected').textContent = 'Gevraagd: ' + it.gevraagd + ' stuks';
+  const qi = document.getElementById('qty-input');
+  qi.value = '';
+  document.getElementById('modal-card').classList.add('show');
+  renderTable();
+  setTimeout(() => qi.focus(), 50);
+}
+
+document.getElementById('qty-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmQty();
+});
+
+function confirmQty() {
+  if (activeIdx === null) return;
+  const val = parseInt(document.getElementById('qty-input').value);
+  if (isNaN(val) || val < 0) return;
+  const it = items[activeIdx];
+  it.gepickt = val;
+  it.status = val === it.gevraagd ? 'ok' : 'err';
+  document.getElementById('modal-card').classList.remove('show');
+  activeIdx = null;
+  document.getElementById('scan-input').value = '';
+  updateStats();
+  renderTable();
+  document.getElementById('scan-input').focus();
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable();
+}
+
+document.getElementById('search-input').addEventListener('input', e => {
+  searchTerm = e.target.value.toLowerCase();
+  renderTable();
+});
+
+// ── Render ─────────────────────────────────────────────────────────────────
+const COLORS = ['#1A4B8C','#5B2A8C','#1A6B4A','#7A3A00','#5A1A4A'];
+const BG_COLORS = ['#E3EFFE','#F0E8FD','#E0F5EC','#FDF0E0','#F5E0F5'];
+
+function srcColor(bron) {
+  const sources = [...new Set(items.map(it => it.bron))];
+  const i = sources.indexOf(bron) % COLORS.length;
+  return { color: COLORS[i], bg: BG_COLORS[i] };
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tbl-body');
+  const sources = [...new Set(items.map(it => it.bron))];
+  const filtered = items.filter((it, i) => {
+    if (currentFilter === 'open' && it.status !== 'open') return false;
+    if (currentFilter === 'ok' && it.status !== 'ok') return false;
+    if (currentFilter === 'err' && it.status !== 'err') return false;
+    if (currentFilter.startsWith('src')) {
+      const si = parseInt(currentFilter.replace('src',''));
+      if (it.bron !== sources[si]) return false;
+    }
+    if (searchTerm) {
+      const hay = (it.scancode + it.artikel + it.omschrijving).toLowerCase();
+      if (!hay.includes(searchTerm)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">Geen artikelen gevonden</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((it, _) => {
+    const idx = items.indexOf(it);
+    let rowClass = '';
+    if (idx === activeIdx) rowClass = 'row-active';
+    else if (it.status === 'ok') rowClass = 'row-ok';
+    else if (it.status === 'err') rowClass = 'row-err';
+    let badge = '<span class="badge badge-open">Open</span>';
+    if (it.status === 'ok') badge = '<span class="badge badge-ok">✓ Correct</span>';
+    if (it.status === 'err') badge = `<span class="badge badge-err">✗ Fout (${it.gepickt}/${it.gevraagd})</span>`;
+    const c = srcColor(it.bron);
+    const bronShort = it.bron.replace(/\.csv$/i,'').split(/[_\-]/).slice(-2).join(' ');
+    const srcTag = sources.length > 1
+      ? `<span class="src-tag" style="background:${c.bg};color:${c.color}">${bronShort}</span>`
+      : '';
+    return `<tr class="${rowClass}">
+      <td style="font-family:monospace;font-size:11px;color:#888">${it.scancode}</td>
+      <td><strong>${it.artikel}</strong>${srcTag}</td>
+      <td>${it.omschrijving}</td>
+      <td style="text-align:center;font-weight:700">${it.gevraagd}</td>
+      <td style="text-align:center">${it.gepickt !== null ? it.gepickt : '—'}</td>
+      <td style="text-align:center">${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateStats() {
+  const ok = items.filter(i => i.status === 'ok').length;
+  const err = items.filter(i => i.status === 'err').length;
+  document.getElementById('st-total').textContent = items.length;
+  document.getElementById('st-ok').textContent = ok;
+  document.getElementById('st-err').textContent = err;
+  const pct = items.length ? Math.round((ok / items.length) * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function resetToUpload() {
+  if (!confirm('Terug naar uploadscherm? Voortgang gaat verloren.')) return;
+  items = []; byCode = {}; activeIdx = null;
+  loadedFiles = []; currentFilter = 'all'; searchTerm = '';
+  document.getElementById('scan-input').value = '';
+  document.getElementById('qty-input').value = '';
+  document.getElementById('modal-card').classList.remove('show');
+  document.getElementById('not-found').style.display = 'none';
+  document.getElementById('files-list').innerHTML = '';
+  document.getElementById('files-list').style.display = 'none';
+  document.getElementById('btn-start').style.display = 'none';
+  document.getElementById('search-input').value = '';
+  document.querySelectorAll('.filter-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.getElementById('scan-app').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+}
+</script>
+</body>
+</html>
